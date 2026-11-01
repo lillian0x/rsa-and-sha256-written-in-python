@@ -12,11 +12,65 @@ RSAは本来共通鍵暗号の鍵の送受信に使われ文字列には使わ�
 
 任意の文字列を、任意の二つの素数から求められた公開鍵で暗号化し、秘密鍵で復号化します。
 
+```mermaid
+flowchart TD
+    subgraph KEY["鍵生成 generateKey"]
+        direction TB
+        P["素数 p, q を用意"] --> N["N = p × q"]
+        P --> L["L = lcm(p-1, q-1)"]
+        L --> E["E = 65537<br/>gcd(E, L) ≠ 1 なら 3 から探す"]
+        E --> D["D = E の逆元 mod L"]
+        N --> PUB["公開鍵 (E, N)"]
+        E --> PUB
+        D --> PRI["秘密鍵 (D, N)"]
+        N --> PRI
+    end
+
+    subgraph ENC["暗号化 encrypt"]
+        direction TB
+        T["平文の文字列"] --> B["UTF-8 のバイト列に変換"]
+        B --> M["整数 m に変換"]
+        M --> CHK{"m ≥ N ?"}
+        CHK -- "はい" --> ERR["エラー: もっと大きな素数が必要"]
+        CHK -- "いいえ" --> C["c = m^E mod N"]
+    end
+
+    subgraph DEC["復号 decrypt"]
+        direction TB
+        C2["暗号文 c"] --> M2["m = c^D mod N"]
+        M2 --> B2["バイト列に変換"]
+        B2 --> T2["UTF-8 でデコード → 元の文字列"]
+    end
+
+    PUB -. "使う" .-> C
+    C --> C2
+    PRI -. "使う" .-> M2
+```
+
 ### SHA-256
 
 アメリカ国家安全保障局によって設計されました。
 
 作成したハッシュ関数とライブラリのハッシュ関数の出力を比較し、正しい値が出力されているかを確認します。
+
+```mermaid
+flowchart TD
+    IN["入力メッセージ bytes"] --> PAD["padding<br/>0x80 を付加 → 0 埋め → 末尾に長さ 64bit"]
+    PAD --> SPLIT["64バイトごとのブロックに分割"]
+    H0["初期ハッシュ値 H0〜H7"] --> LOOP
+
+    SPLIT --> LOOP
+
+    subgraph LOOP["各ブロックに対して繰り返す process_block"]
+        direction TB
+        S["build_scedule<br/>16語を 64語 W0〜W63 に拡張"] --> R["step_round を 64回<br/>作業変数 a〜h を更新<br/>定数 K と W を使用"]
+        R --> ADD["元の H に a〜h を加算<br/>mask32 で 32bit に収める"]
+    end
+
+    LOOP --> NEXT{"次のブロックがある?"}
+    NEXT -- "はい" --> LOOP
+    NEXT -- "いいえ" --> OUT["H0〜H7 を連結<br/>64桁の16進数 = ハッシュ値"]
+```
 
 ## 操作方法
 
